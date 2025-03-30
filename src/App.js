@@ -3,18 +3,21 @@ import Good from "./gifs/good.gif"
 import Morning from "./gifs/morning.gif"
 import Hello from "./gifs/hello.gif"
 import You from "./gifs/you.gif" 
+
 const SignLanguagePlayer = () => {
   const [inputText, setInputText] = useState('');
   const [currentWord, setCurrentWord] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [filteredWords, setFilteredWords] = useState([]);
   const [showFiltered, setShowFiltered] = useState(false);
+  const [loopCount, setLoopCount] = useState(0);
   const gifQueueRef = useRef([]);
+  const originalQueueRef = useRef([]);
   const timeoutRef = useRef(null);
 
   // Define our sign language GIFs
   const signLanguageGifs = [
-    { word: "good", gifPath:Good },
+    { word: "good", gifPath: Good },
     { word: "morning", gifPath: Morning },
     { word: "hello", gifPath: Hello },
     { word: "you", gifPath: You},
@@ -50,7 +53,12 @@ const SignLanguagePlayer = () => {
       }
     });
     
-    gifQueueRef.current = queue;
+    // Store the original queue for looping
+    originalQueueRef.current = [...queue];
+    gifQueueRef.current = [...queue];
+    
+    // Reset loop count
+    setLoopCount(0);
     
     // Start playing if we have GIFs in the queue
     if (queue.length > 0) {
@@ -63,10 +71,9 @@ const SignLanguagePlayer = () => {
 
   const playNextGif = () => {
     if (gifQueueRef.current.length === 0) {
-      // Queue is empty, reset
-      setIsPlaying(false);
-      setCurrentWord('');
-      return;
+      // Queue is empty, reset it and start over
+      gifQueueRef.current = [...originalQueueRef.current];
+      setLoopCount(prevCount => prevCount + 1);
     }
     
     // Get the next GIF from the queue
@@ -79,7 +86,16 @@ const SignLanguagePlayer = () => {
     timeoutRef.current = setTimeout(playNextGif, 2000);
   };
 
-  // Clean up timeout on unmount or when stopping playback
+  const stopPlayback = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setIsPlaying(false);
+    setCurrentWord('');
+    gifQueueRef.current = [];
+  };
+
+  // Clean up timeout on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -113,13 +129,39 @@ const SignLanguagePlayer = () => {
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
             />
-            <button 
-              style={{ backgroundColor: '#3182ce', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}
-              onClick={processText}
-              disabled={isPlaying}
-            >
-              Play
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                style={{ 
+                  backgroundColor: isPlaying ? '#cbd5e0' : '#3182ce', 
+                  color: 'white', 
+                  padding: '8px 16px', 
+                  borderRadius: '4px', 
+                  cursor: isPlaying ? 'not-allowed' : 'pointer', 
+                  transition: 'background-color 0.2s',
+                  flexGrow: 1
+                }}
+                onClick={processText}
+                disabled={isPlaying}
+              >
+                Play
+              </button>
+              {isPlaying && (
+                <button 
+                  style={{ 
+                    backgroundColor: '#e53e3e', 
+                    color: 'white', 
+                    padding: '8px 16px', 
+                    borderRadius: '4px', 
+                    cursor: 'pointer', 
+                    transition: 'background-color 0.2s',
+                    flexGrow: 1
+                  }}
+                  onClick={stopPlayback}
+                >
+                  Stop
+                </button>
+              )}
+            </div>
           </div>
           {showFiltered && (
             <p style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
@@ -131,24 +173,25 @@ const SignLanguagePlayer = () => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '256px', height: '256px', backgroundColor: '#edf2f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {isPlaying && currentWord ? (
-              <img 
-                src={signLanguageGifs.find(item => item.word === currentWord)?.gifPath} 
-                alt={`${currentWord} sign`} 
-                style={{ maxWidth: '100%', maxHeight: '100%' }} 
-              />
+              <>
+                <img 
+                  src={signLanguageGifs.find(item => item.word === currentWord)?.gifPath} 
+                  alt={`${currentWord} sign`} 
+                  style={{ maxWidth: '100%', maxHeight: '100%' }} 
+                />
+                <div style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '12px' }}>
+                  Loop: {loopCount}
+                </div>
+              </>
             ) : (
               <p style={{ color: '#6b7280' }}>
-                {gifQueueRef.current.length === 0 && isPlaying 
-                  ? "Done" 
+                {originalQueueRef.current.length > 0 && !isPlaying 
+                  ? "Paused" 
                   : "Sign language GIFs will appear here"}
               </p>
             )}
           </div>
-        
         </div>
-
-       
-       
       </div>
     </div>
   );
